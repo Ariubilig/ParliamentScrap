@@ -2,31 +2,28 @@ const fs = require("fs");
 const path = require("path");
 
 
-const data = JSON.parse(fs.readFileSync("../../parliament.json", "utf8")); // Read scraped file
+const data = JSON.parse(fs.readFileSync("../parliament.json", "utf8")); // Read scraped file
 const categories = {}; // Group by category
 
 data.forEach(item => {
   const category = item.category || "Unknown";
 
-  // Create array for this category if not exist
-  if (!categories[category]) {
+  if (!categories[category]) { // Create array if category not exist
     categories[category] = [];
   }
 
-  // Push the item into category list
-  categories[category].push(item);
+  categories[category].push(item); // Push items into category list
 });
 
-// Create an "output" folder /if not exist/
-const outputDir = path.join(__dirname, "categories");
+const outputDir = path.join(__dirname, "categories"); // Create an "output" folder /if not exist/
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir);
 }
 
 // Write each category into its own JSON file
 for (const [category, items] of Object.entries(categories)) {
-  // Sanitize filename (remove special chars)
-  const safeName = category.replace(/[\/\\:*?"<>|]/g, "_");
+
+  const safeName = category.replace(/[\/\\:*?"<>|]/g, "_"); // remove special chars
   const filePath = path.join(outputDir, `${safeName}.json`);
 
   fs.writeFileSync(filePath, JSON.stringify(items, null, 2), "utf8");

@@ -1,5 +1,6 @@
 const fs = require("fs");
-const data = JSON.parse(fs.readFileSync("../../parliament.json", "utf8")); // Read scraped file
+const data = JSON.parse(fs.readFileSync("../parliament.json", "utf8")); // Read scraped file
+
 
 function splitText(text, maxLength = 7000) { // split long text into 7000-character each
 
