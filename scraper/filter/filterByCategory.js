@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 
-const data = JSON.parse(fs.readFileSync("../parliament.json", "utf8")); // Read scraped file
+const data = JSON.parse(fs.readFileSync("../parliament_split.json", "utf8")); // Read split file
 const categories = {}; // Group by category
 
 data.forEach(item => {

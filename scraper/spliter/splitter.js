@@ -36,5 +36,5 @@ for (const article of data) {
 }
 
 
-fs.writeFileSync("parliament_split.json", JSON.stringify(output, null, 2), "utf8");
+fs.writeFileSync("../parliament_split.json", JSON.stringify(output, null, 2), "utf8");
 console.log(`✅ Done! Saved ${output.length} records to parliament_split.json`);
