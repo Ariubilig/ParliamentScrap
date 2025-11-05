@@ -1,16 +1,37 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 
-
-const startId = 76005;   // latest ID
-const maxArticles = 10;  // how many to collect
 const results = [];
+const maxArticles = 20;
+
 
 (async () => {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
-  for (let id = startId; id > startId - maxArticles; id--) {
+  // STEP 1: Find the latest post ID automatically
+  console.log("🔍 Finding the latest post ID...");
+  await page.goto("https://www.parliament.mn/nn/", { waitUntil: "domcontentloaded" });
+
+  const latestId = await page.evaluate(() => {
+    const link = Array.from(document.querySelectorAll("a[href*='/nn/']"))
+      .map(a => a.href)
+      .filter(href => href.match(/\/nn\/\d+\//))
+      .map(href => parseInt(href.match(/\/nn\/(\d+)\//)[1]))
+      .sort((a, b) => b - a)[0];
+    return link || null;
+  });
+
+  if (!latestId) {
+    console.log("❌ Could not find latest post ID!");
+    await browser.close();
+    return;
+  }
+
+  console.log(`🆕 Latest ID detected: ${latestId}`);
+
+  // STEP 2: Go backwards
+  for (let id = latestId; id > latestId - maxArticles; id--) {
     const url = `https://www.parliament.mn/nn/${id}/`;
     console.log("Fetching:", url);
 
@@ -32,9 +53,7 @@ const results = [];
       });
 
       if (article.title) {
-        // 🧹 CLEANING STEP
         article.content = cleanText(article.content);
-
         console.log(`✅ Scraped & cleaned: ${article.title}`);
         results.push({ id, url, ...article });
       } else {
@@ -51,14 +70,13 @@ const results = [];
   console.log(`\n✅ Done! Saved ${results.length} cleaned posts to parliament.json`);
 })();
 
-// 🧽 TEXT CLEANER FUNCTION
 function cleanText(text) {
   return text
-    .replace(/\s+/g, " ")             // collapse all whitespace
-    .replace(/\n{2,}/g, "\n")         // collapse many newlines
-    .replace(/^\s+|\s+$/g, "")        // trim start/end
-    .replace(/([.,!?])([A-Za-zА-Яа-я])/g, "$1 $2") // ensure space after punctuation
-    .replace(/(\d)\s+(\d)/g, "$1$2")  // fix spaces in numbers
-    .replace(/-{2,}/g, "-")           // clean long dashes
+    .replace(/\s+/g, " ")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/^\s+|\s+$/g, "")
+    .replace(/([.,!?])([A-Za-zА-Яа-я])/g, "$1 $2")
+    .replace(/(\d)\s+(\d)/g, "$1$2")
+    .replace(/-{2,}/g, "-")
     .trim();
 }

@@ -1,32 +1,51 @@
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const path = require("path");
-const util = require("util");
-const execPromise = util.promisify(exec);
 
 
-async function runStep(stepName, scriptPath, description) {
+function runStep(stepName, scriptPath, description, opts = {}) {
+
+  const cwd = opts.cwd || path.dirname(scriptPath);
+  const nodeArgs = opts.nodeArgs || [];
+  const args = [...nodeArgs, scriptPath];
+
   console.log(`\n${"=".repeat(60)}`);
   console.log(`🔄 STEP ${stepName}: ${description}`);
+  console.log(`📁 Script: ${scriptPath}`);
   console.log(`${"=".repeat(60)}\n`);
 
-  try {
-    const { stdout, stderr } = await execPromise(`node "${scriptPath}"`, {
-      cwd: path.dirname(scriptPath),
-      encoding: "utf8",
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      cwd,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
     });
 
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
+    // Stream stdout/stderr live to parent process
+    child.stdout.on("data", (chunk) => process.stdout.write(String(chunk)));
+    child.stderr.on("data", (chunk) => process.stderr.write(String(chunk)));
 
-    console.log(`\n✅ Step ${stepName} completed successfully!\n`);
-    return true;
-  } catch (error) {
-    console.error(`\n❌ Error in Step ${stepName}:`);
-    console.error(error.message);
-    if (error.stdout) console.error(error.stdout);
-    if (error.stderr) console.error(error.stderr);
-    return false;
-  }
+    child.on("error", (err) => {
+      console.error(`\n❌ Failed to start step ${stepName}:`, err.message);
+      resolve({ success: false, code: null, error: err });
+    });
+
+    child.on("close", (code, signal) => {
+      if (signal) {
+        console.error(`\n❌ Step ${stepName} terminated by signal: ${signal}`);
+        resolve({ success: false, code: null, signal });
+        return;
+      }
+      if (code === 0) {
+        console.log(`\n✅ Step ${stepName} completed successfully!\n`);
+        resolve({ success: true, code });
+      } else {
+        console.error(`\n❌ Step ${stepName} exited with code ${code}`);
+        resolve({ success: false, code });
+      }
+    });
+  });
+
 }
 
 async function main() {
@@ -54,10 +73,14 @@ async function main() {
   ];
 
   for (const step of steps) {
-    const success = await runStep(step.name, step.script, step.description);
+    // sanity check: script file path resolution
+    const scriptPath = step.script;
+    const result = await runStep(step.name, scriptPath, step.description);
 
-    if (!success) {
+    if (!result.success) {
       console.error(`\n❌ Pipeline stopped at Step ${step.name}`);
+      if (result.code !== null) console.error(`Exit code: ${result.code}`);
+      if (result.error) console.error(`Error: ${result.error.message}`);
       console.error("Fix the error and try again.\n");
       process.exit(1);
     }
@@ -66,17 +89,15 @@ async function main() {
   console.log("\n" + "=".repeat(60));
   console.log("✅ ALL STEPS COMPLETED SUCCESSFULLY!");
   console.log("=".repeat(60));
+
   console.log("\n📁 Output files:");
   console.log("   • parliament.json (scraped articles)");
   console.log("   • parliament_split.json (split articles)");
   console.log("   • filter/categories/*.json (category files)");
-  console.log("");
 
 }
-
 
 main().catch((error) => {
   console.error("\n❌ Fatal error:", error);
   process.exit(1);
 });
-
