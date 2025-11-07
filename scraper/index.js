@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 
 const results = [];
-const maxArticles = 20;
+const maxArticles = 1000;
 
 
 (async () => {
